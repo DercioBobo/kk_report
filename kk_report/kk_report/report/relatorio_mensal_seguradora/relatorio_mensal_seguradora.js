@@ -49,4 +49,14 @@ frappe.query_reports["Relatorio Mensal Seguradora"] = {
 		}
 		return value;
 	},
+
+	onload: function (report) {
+		report.page.add_inner_button(__("Exportar Excel"), function () {
+			const filters = report.get_values();
+			open_url_post(
+				"/api/method/kk_report.kk_report.report.relatorio_mensal_seguradora.relatorio_mensal_seguradora.download_xlsx",
+				{ filters: JSON.stringify(filters) }
+			);
+		});
+	},
 };

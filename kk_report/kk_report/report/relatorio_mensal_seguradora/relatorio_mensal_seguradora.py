@@ -114,6 +114,66 @@ def get_data(filters):
     return data
 
 
+@frappe.whitelist()
+def download_xlsx(filters=None):
+    """Return a formatted Excel file with currency columns styled as #,##0.00."""
+    import io
+
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font
+    from openpyxl.utils import get_column_letter
+
+    if isinstance(filters, str):
+        filters = frappe.parse_json(filters)
+    filters = frappe._dict(filters or {})
+
+    columns = get_columns()
+    data = get_data(filters)
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Relatorio Mensal Seguradora"
+
+    # Header row
+    ws.append([col["label"] for col in columns])
+    for cell in ws[1]:
+        cell.font = Font(bold=True)
+        cell.alignment = Alignment(horizontal="center")
+
+    # Currency column indices (1-based)
+    currency_cols = [i + 1 for i, col in enumerate(columns) if col["fieldtype"] == "Currency"]
+
+    # Data rows
+    for row in data:
+        row_values = [row.get(col["fieldname"], "") for col in columns]
+        ws.append(row_values)
+
+        current_row = ws.max_row
+        is_total = bool(row.get("bold"))
+
+        for col_idx in currency_cols:
+            cell = ws.cell(row=current_row, column=col_idx)
+            if isinstance(cell.value, (int, float)):
+                cell.number_format = "#,##0.00"
+            if is_total:
+                cell.font = Font(bold=True)
+
+        if is_total:
+            ws.cell(row=current_row, column=1).font = Font(bold=True)
+
+    # Column widths
+    for i, col in enumerate(columns, 1):
+        ws.column_dimensions[get_column_letter(i)].width = max(col.get("width", 120) // 7, 12)
+
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    frappe.response["filename"] = "relatorio_mensal_seguradora.xlsx"
+    frappe.response["filecontent"] = output.getvalue()
+    frappe.response["type"] = "binary"
+
+
 def get_conditions(filters):
     conditions = []
     values = frappe._dict()
