@@ -123,6 +123,10 @@ def download_xlsx(filters=None):
     from openpyxl.styles import Alignment, Font
     from openpyxl.utils import get_column_letter
 
+    from kk_report.overrides import set_user_language
+
+    set_user_language()
+
     if isinstance(filters, str):
         filters = frappe.parse_json(filters)
     filters = frappe._dict(filters or {})

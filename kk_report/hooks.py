@@ -10,6 +10,10 @@ app_email = ""
 app_license = "MIT"
 
 # Fixtures — syncs report definitions on bench migrate
+override_whitelisted_methods = {
+	"frappe.desk.query_report.export_query": "kk_report.overrides.export_query",
+}
+
 fixtures = [
     {
         "dt": "Report",
