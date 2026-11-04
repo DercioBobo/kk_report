@@ -103,6 +103,40 @@ def _remove_excluded_fields():
 	frappe.form_dict["fields"] = frappe.as_json(kept) if was_string else kept
 
 
+def _excel_date_format():
+	"""System date format (e.g. dd-mm-yyyy, dd/mm/yyyy) as an Excel number format."""
+	fmt = frappe.db.get_default("date_format") or "dd-mm-yyyy"
+	return fmt.lower()
+
+
+def _apply_date_format(xlsx_file):
+	"""Show date / datetime cells in the ERP date format instead of Excel's yyyy-mm-dd.
+
+	Cells stay real Excel dates (sortable / filterable), only their display format changes.
+	"""
+	import io
+	from datetime import date, datetime
+
+	from openpyxl import load_workbook
+
+	date_fmt = _excel_date_format()
+	datetime_fmt = date_fmt + " hh:mm:ss"
+
+	xlsx_file.seek(0)
+	wb = load_workbook(xlsx_file)
+	for ws in wb.worksheets:
+		for row in ws.iter_rows():
+			for cell in row:
+				if isinstance(cell.value, (datetime, date)):
+					has_time = "h" in (cell.number_format or "").lower()
+					cell.number_format = datetime_fmt if has_time else date_fmt
+
+	output = io.BytesIO()
+	wb.save(output)
+	output.seek(0)
+	return output
+
+
 @frappe.whitelist()
 def export_list_view():
 	"""List / Report View export (DocType list > Menu > Export) with headers in the user's language.
@@ -126,7 +160,7 @@ def export_list_view():
 	def make_xlsx_translated(data, *args, **kwargs):
 		if data and isinstance(data[0], (list, tuple)):
 			data = [[_translate_header(h) for h in data[0]]] + list(data[1:])
-		return original_make_xlsx(data, *args, **kwargs)
+		return _apply_date_format(original_make_xlsx(data, *args, **kwargs))
 
 	core_reportview.get_labels = get_labels_translated
 	xlsxutils.make_xlsx = make_xlsx_translated
