@@ -52,6 +52,57 @@ def _translate_header(label):
 	return _(label)
 
 
+# Columns that the list view adds automatically and that should not be exported
+EXCLUDED_EXPORT_FIELDS = ("docstatus",)
+
+
+def _remove_excluded_fields():
+	fields = frappe.form_dict.get("fields")
+	if not fields:
+		return
+
+	was_string = isinstance(fields, str)
+	if was_string:
+		fields = frappe.parse_json(fields)
+
+	def fieldname_of(f):
+		# e.g. "`tabSales Invoice`.`docstatus`" or "docstatus as x" -> "docstatus"
+		return f.split(" as ")[0].split(".")[-1].strip("` ").lower()
+
+	def column_key(f):
+		# "`tabSales Invoice`.`name`" and "name" are the same column -> "name"
+		base = f.split(" as ")[0].replace("`", "").strip().lower()
+		if base.startswith("tab") and "." in base:
+			table, field = base.split(".", 1)
+			doctype = (frappe.form_dict.get("doctype") or "").lower()
+			if table[3:] == doctype:
+				base = field
+		return base
+
+	def is_child_table_name(f):
+		# "`tabSales Invoice Payment`.`name`" -> internal row id of a child table
+		key = column_key(f)
+		return "." in key and key.split(".", 1)[1] == "name"
+
+	kept = []
+	seen = set()
+	for f in fields:
+		if isinstance(f, str):
+			if fieldname_of(f) in EXCLUDED_EXPORT_FIELDS or is_child_table_name(f):
+				continue
+			key = column_key(f)
+			if key in seen:
+				# duplicate column, e.g. "Sales Invoice: Name"
+				continue
+			seen.add(key)
+		kept.append(f)
+
+	if not kept:
+		return
+
+	frappe.form_dict["fields"] = frappe.as_json(kept) if was_string else kept
+
+
 @frappe.whitelist()
 def export_list_view():
 	"""List / Report View export (DocType list > Menu > Export) with headers in the user's language.
@@ -63,6 +114,7 @@ def export_list_view():
 	import frappe.utils.xlsxutils as xlsxutils
 
 	set_user_language()
+	_remove_excluded_fields()
 
 	original_get_labels = core_reportview.get_labels
 	original_make_xlsx = xlsxutils.make_xlsx
