@@ -51,12 +51,6 @@ frappe.query_reports["Resumo de Contas a Receber"] = {
 			options: "Seguradora",
 			reqd: 0,
 		},
-		{
-			fieldname: "only_outstanding",
-			label: __("Apenas com Dívida"),
-			fieldtype: "Check",
-			default: 0,
-		},
 	],
 
 	formatter: function (value, row, column, data, default_formatter) {

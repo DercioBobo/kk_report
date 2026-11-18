@@ -98,14 +98,14 @@ def get_data(filters):
         ) t
         GROUP BY
             t.customer, t.seguradora
-        {having}
+        HAVING
+            SUM(t.outstanding_amount) != 0
         ORDER BY
             customer_name ASC,
             t.seguradora ASC
         """.format(
             age_field=age_field,
             conditions=conditions,
-            having="HAVING SUM(t.outstanding_amount) != 0" if filters.get("only_outstanding") else "",
         ),
         values,
         as_dict=1,
